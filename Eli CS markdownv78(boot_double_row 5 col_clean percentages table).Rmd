@@ -1,0 +1,508 @@
+---
+title: "Results"
+author: "Eli"
+date: "July 26, 2019"
+output:
+  
+  bookdown::word_document2:
+    reference_docx: "style template.docx"
+---
+
+```{r}
+library(readxl)
+library(knitr)
+trials<- read_excel("Master Compiled Novelty Data.xlsx")
+
+
+
+
+
+
+#This code changes all 2s into 1s in code novelty column (to account for exlusions being listed as "not novel")
+trials$`Code Novelty`[trials$`Code Novelty` == 2]  <- 1
+
+
+#This section of code should generate the novelty table
+summary_table <- c("Overall","","","","")
+#this section makes row for overall trials
+summary_table <- c(summary_table,paste0("Overall trials (k=", nrow(trials),")"))
+for (novelty_code in c(3,4,1,0)) {
+  novelty_subset <- subset(trials, `Code Novelty` == novelty_code)
+  
+ #this section starts bootstrap analysis for overall trial 
+ resample.data<-function(data){
+  data[sample(nrow(data), replace=T), ]
+}
+
+get_proportion <- function (data) {
+  newsample <- resample.data(data)
+  novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code)
+
+  return (nrow(novelty_subset_boot) / nrow(trials))
+}
+
+
+boot<-replicate(10000, get_proportion(trials))
+
+
+
+  print(paste(nrow(novelty_subset)))
+  summary_table <-c(summary_table,paste0(format(100*nrow(novelty_subset)/nrow(trials), nsmall= 1, digits = 2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]" ))
+}
+
+
+#This section makes row for overall patient enrollment
+summary_table <- c(summary_table, paste0("Overall patietns (n=", sum(trials$Enrollment),")"))
+for (novelty_code in c(3,4,1,0)) {
+  novelty_subset <- subset(trials, `Code Novelty` == novelty_code)
+     resample.data<-function(data){
+    data[sample(nrow(data), replace=T), ]
+    }
+
+      get_proportion <- function (data) {
+      newsample <- resample.data(data)
+      novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code)
+
+      return (sum(novelty_subset_boot$Enrollment) / sum(newsample$Enrollment))
+    }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+  
+  print(paste(sum(novelty_subset$Enrollment)))
+  summary_table <-c(summary_table,paste0(format(100*sum(novelty_subset$Enrollment)/sum(trials$Enrollment), nsmall= 1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+}
+
+
+
+
+summary_table <- c(summary_table,"Phase","","","","")
+trials$Phase[trials$Phase == "Early Phase 1"] <- "Phase 1"
+trials$Phase[trials$Phase == "Phase 1/Phase 2"] <- "Phase 2"
+trials$Phase[trials$Phase == "Phase 2/Phase 3"] <- "Phase 3"
+
+
+# this section makes row for Phase 1 trials
+
+for (phase_number in c("Phase 1") ){
+  denominator_subset <- subset(trials, Phase == phase_number)
+  summary_table <-c(summary_table,paste0(phase_number," (trials k=",(nrow(denominator_subset)),")" ))
+
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Phase == phase_number)
+      
+         resample.data<-function(data){
+      data[sample(nrow(data), replace=T), ]
+     }
+
+     get_proportion <- function (data) {
+       newsample <- resample.data(data)
+    novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Phase=="Phase 1")
+    denominator_subset_boot <-subset(newsample,Phase == "Phase 1")
+     return (nrow(novelty_subset_boot) / nrow(denominator_subset_boot))
+     }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+    
+    print(paste(nrow(novelty_subset), "-", sum(novelty_subset$Enrollment)))
+    summary_table <-c(summary_table,paste0(format(100*nrow(novelty_subset)/nrow(denominator_subset), nsmall=1, digits=2),"% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"  ))
+  }
+  
+  
+}
+#this is for phase 1 enrollment
+for (phase_number in c("Phase 1")){
+  denominator_subset <- subset(trials, Phase == phase_number)
+  summary_table <-c(summary_table,paste0(phase_number," patients (n=",(sum(denominator_subset$Enrollment)),")" ))
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Phase == phase_number)
+    
+    resample.data<-function(data){
+    data[sample(nrow(data), replace=T), ]
+    }
+
+      get_proportion <- function (data) {
+      newsample <- resample.data(data)
+      novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Phase=="Phase 1")
+      denominator_subset_boot <-subset(newsample,Phase == "Phase 1")
+      return (sum(novelty_subset_boot$Enrollment) / sum(denominator_subset_boot$Enrollment))
+    }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+      
+    print(paste( sum(novelty_subset$Enrollment)))
+    summary_table <-c(summary_table,paste0(format(100*sum(novelty_subset$Enrollment)/sum(denominator_subset$Enrollment) ,nsmall=1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+#this makes phase 2 trials
+for (phase_number in c("Phase 2") ){
+  denominator_subset <- subset(trials, Phase == phase_number)
+  summary_table <-c(summary_table,paste0(phase_number," (trials k=",(nrow(denominator_subset)),")" ))
+
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Phase == phase_number)
+      
+         resample.data<-function(data){
+      data[sample(nrow(data), replace=T), ]
+     }
+
+     get_proportion <- function (data) {
+       newsample <- resample.data(data)
+    novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Phase == "Phase 2")
+    denominator_subset_boot <-subset(newsample,Phase == "Phase 2")
+     return (nrow(novelty_subset_boot) / nrow(denominator_subset_boot))
+     }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+    
+    print(paste(nrow(novelty_subset), "-", sum(novelty_subset$Enrollment)))
+    summary_table <-c(summary_table,paste0(format(100*nrow(novelty_subset)/nrow(denominator_subset), nsmall=1, digits=2),"% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"  ))
+  }
+  
+  
+}
+
+#this makes phase 2 enrollment
+for (phase_number in c("Phase 2")){
+  denominator_subset <- subset(trials, Phase == phase_number)
+  summary_table <-c(summary_table,paste0(phase_number," patients (n=",(sum(denominator_subset$Enrollment)),")" ))
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Phase == phase_number)
+    
+    resample.data<-function(data){
+    data[sample(nrow(data), replace=T), ]
+    }
+
+      get_proportion <- function (data) {
+      newsample <- resample.data(data)
+      novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Phase == "Phase 2")
+      denominator_subset_boot <-subset(newsample,Phase == "Phase 2")
+      return (sum(novelty_subset_boot$Enrollment) / sum(denominator_subset_boot$Enrollment))
+    }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+      
+    print(paste( sum(novelty_subset$Enrollment)))
+    summary_table <-c(summary_table,paste0(format(100*sum(novelty_subset$Enrollment)/sum(denominator_subset$Enrollment) ,nsmall=1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+#this makes phase 3 trials
+for (phase_number in c("Phase 3") ){
+  denominator_subset <- subset(trials, Phase == phase_number)
+  summary_table <-c(summary_table,paste0(phase_number," (trials k=",(nrow(denominator_subset)),")" ))
+
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Phase == phase_number)
+      
+         resample.data<-function(data){
+      data[sample(nrow(data), replace=T), ]
+     }
+
+     get_proportion <- function (data) {
+       newsample <- resample.data(data)
+    novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Phase == "Phase 3")
+    denominator_subset_boot <-subset(newsample,Phase == "Phase 3")
+     return (nrow(novelty_subset_boot) / nrow(denominator_subset_boot))
+     }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+    
+    print(paste(nrow(novelty_subset), "-", sum(novelty_subset$Enrollment)))
+    summary_table <-c(summary_table,paste0(format(100*nrow(novelty_subset)/nrow(denominator_subset), nsmall=1, digits=2),"% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"  ))
+  }
+  
+  
+}
+
+#this makes phase 3 enrollment
+for (phase_number in c("Phase 3")){
+  denominator_subset <- subset(trials, Phase == phase_number)
+  summary_table <-c(summary_table,paste0(phase_number," patients (n=",(sum(denominator_subset$Enrollment)),")" ))
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Phase == phase_number)
+    
+    resample.data<-function(data){
+    data[sample(nrow(data), replace=T), ]
+    }
+
+      get_proportion <- function (data) {
+      newsample <- resample.data(data)
+      novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Phase == "Phase 3")
+      denominator_subset_boot <-subset(newsample,Phase == "Phase 3")
+      return (sum(novelty_subset_boot$Enrollment) / sum(denominator_subset_boot$Enrollment))
+    }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+      
+    print(paste( sum(novelty_subset$Enrollment)))
+    summary_table <-c(summary_table,paste0(format(100*sum(novelty_subset$Enrollment)/sum(denominator_subset$Enrollment) ,nsmall=1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+summary_table <- c(summary_table,"Sponsorship","","","","")
+trials$sponsorship[trials$sponsorship == "NIH"] <- "Other"
+trials$sponsorship[trials$sponsorship == "Other"] <- "Non-Industry"
+
+#this creates the row for industry trials
+for (sponsor in c("Industry")){
+ sponsor_subset <- subset(trials, sponsorship == sponsor)
+   summary_table <-c(summary_table,paste0(sponsor, " trials (k=", (nrow(sponsor_subset)),")"))
+  
+  
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & sponsorship == sponsor)
+      resample.data<-function(data){
+      data[sample(nrow(data), replace=T), ]
+     }
+
+     get_proportion <- function (data) {
+       newsample <- resample.data(data)
+    novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & sponsorship == "Industry")
+    denominator_subset_boot <-subset(newsample,sponsorship == "Industry")
+     return (nrow(novelty_subset_boot) / nrow(denominator_subset_boot))
+     }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+    
+    print(paste(nrow(novelty_subset)))
+    summary_table <-c(summary_table,paste0(format(100*nrow(novelty_subset)/nrow(sponsor_subset), nsmall=1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+# this creates the row for industry enrollment
+for (sponsor in c("Industry")){
+ sponsor_subset <- subset(trials, sponsorship == sponsor)
+   summary_table <-c(summary_table,paste0(sponsor, " patients (n=", (sum(sponsor_subset$Enrollment)),")"))
+  
+  
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & sponsorship == sponsor)
+    
+    resample.data<-function(data){
+    data[sample(nrow(data), replace=T), ]
+    }
+
+      get_proportion <- function (data) {
+      newsample <- resample.data(data)
+      novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & sponsorship == "Industry")
+      denominator_subset_boot <-subset(newsample,sponsorship == "Industry")
+      return (sum(novelty_subset_boot$Enrollment) / sum(denominator_subset_boot$Enrollment))
+    }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+      
+    print(paste(sum(novelty_subset$Enrollment)))
+    summary_table <-c(summary_table,paste0( format (100*sum(novelty_subset$Enrollment)/sum(sponsor_subset$Enrollment) , nsmall=1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+#this creates the row for non-industry trials
+for (sponsor in c("Non-Industry")){
+ sponsor_subset <- subset(trials, sponsorship == sponsor)
+   summary_table <-c(summary_table,paste0(sponsor, " trials (k=", (nrow(sponsor_subset)),")"))
+  
+  
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & sponsorship == sponsor)
+      resample.data<-function(data){
+      data[sample(nrow(data), replace=T), ]
+     }
+
+     get_proportion <- function (data) {
+       newsample <- resample.data(data)
+    novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & sponsorship == "Non-Industry")
+    denominator_subset_boot <-subset(newsample,sponsorship == "Non-Industry")
+     return (nrow(novelty_subset_boot) / nrow(denominator_subset_boot))
+     }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+    
+    print(paste(nrow(novelty_subset)))
+    summary_table <-c(summary_table,paste0(format(100*nrow(novelty_subset)/nrow(sponsor_subset), nsmall=1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+# this creates the row for non-industry enrollment
+for (sponsor in c("Non-Industry")){
+ sponsor_subset <- subset(trials, sponsorship == sponsor)
+   summary_table <-c(summary_table,paste0(sponsor, " patients (n=", (sum(sponsor_subset$Enrollment)),")"))
+  
+  
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & sponsorship == sponsor)
+    
+    resample.data<-function(data){
+    data[sample(nrow(data), replace=T), ]
+    }
+
+      get_proportion <- function (data) {
+      newsample <- resample.data(data)
+      novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & sponsorship == "Non-Industry")
+      denominator_subset_boot <-subset(newsample,sponsorship == "Non-Industry")
+      return (sum(novelty_subset_boot$Enrollment) / sum(denominator_subset_boot$Enrollment))
+    }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+      
+    print(paste(sum(novelty_subset$Enrollment)))
+    summary_table <-c(summary_table,paste0( format (100*sum(novelty_subset$Enrollment)/sum(sponsor_subset$Enrollment) , nsmall=1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+summary_table <- c(summary_table,"Biomarker","","","","")
+trials$Biomarker[trials$Biomarker == "1"] <- "Yes"
+trials$Biomarker[trials$Biomarker == "0"] <- "No"
+
+#this makes the row for biomarker trials
+
+for (bm in c("Yes")){
+  bm_subset <- subset(trials, Biomarker == bm)
+  summary_table <-c(summary_table, paste0(bm, " trials (k=" , (nrow(bm_subset)),")"))
+  
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Biomarker == bm)
+     resample.data<-function(data){
+      data[sample(nrow(data), replace=T), ]
+     }
+
+     get_proportion <- function (data) {
+       newsample <- resample.data(data)
+    novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Biomarker == "Yes")
+    denominator_subset_boot <-subset(newsample,Biomarker == "Yes")
+     return (nrow(novelty_subset_boot) / nrow(denominator_subset_boot))
+     }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+    summary_table <-c(summary_table,paste0(format(100*nrow(novelty_subset)/nrow(bm_subset),nsmall=1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+
+#this makes the row for biomarker patietns 
+
+for (bm in c("Yes")){
+  bm_subset <- subset(trials, Biomarker == bm)
+  summary_table <-c(summary_table,paste0(bm, " patients (n=", (sum(bm_subset$Enrollment)),")"))
+  
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Biomarker == bm)
+    resample.data<-function(data){
+    data[sample(nrow(data), replace=T), ]
+    }
+
+      get_proportion <- function (data) {
+      newsample <- resample.data(data)
+      novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Biomarker == "Yes")
+      denominator_subset_boot <-subset(newsample,Biomarker == "Yes")
+      return (sum(novelty_subset_boot$Enrollment) / sum(denominator_subset_boot$Enrollment))
+    }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+    summary_table <-c(summary_table,paste0( format(100*sum(novelty_subset$Enrollment)/sum(bm_subset$Enrollment) , nsmall=1, digits=2),"% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+#this makes the row for non-biomarker trials
+
+for (bm in c("No")){
+  bm_subset <- subset(trials, Biomarker == bm)
+  summary_table <-c(summary_table, paste0(bm, " trials (k=" , (nrow(bm_subset)),")"))
+  
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Biomarker == bm)
+     resample.data<-function(data){
+      data[sample(nrow(data), replace=T), ]
+     }
+
+     get_proportion <- function (data) {
+       newsample <- resample.data(data)
+    novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Biomarker == "No")
+    denominator_subset_boot <-subset(newsample,Biomarker == "No")
+     return (nrow(novelty_subset_boot) / nrow(denominator_subset_boot))
+     }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+    summary_table <-c(summary_table,paste0(format(100*nrow(novelty_subset)/nrow(bm_subset),nsmall=1, digits=2), "% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+#this makes the row for Non-biomarker patietns 
+
+for (bm in c("No")){
+  bm_subset <- subset(trials, Biomarker == bm)
+  summary_table <-c(summary_table,paste0(bm, " patients (n=", (sum(bm_subset$Enrollment)),")"))
+  
+  for (novelty_code in c(3,4,1,0)) {
+    novelty_subset <- subset(trials, `Code Novelty` == novelty_code & Biomarker == bm)
+    resample.data<-function(data){
+    data[sample(nrow(data), replace=T), ]
+    }
+
+      get_proportion <- function (data) {
+      newsample <- resample.data(data)
+      novelty_subset_boot <- subset(newsample, `Code Novelty` == novelty_code & Biomarker == "No")
+      denominator_subset_boot <-subset(newsample,Biomarker == "No")
+      return (sum(novelty_subset_boot$Enrollment) / sum(denominator_subset_boot$Enrollment))
+    }
+
+
+      boot<-replicate(10000, get_proportion(trials))
+    summary_table <-c(summary_table,paste0( format(100*sum(novelty_subset$Enrollment)/sum(bm_subset$Enrollment) , nsmall=1, digits=2),"% [", format(100*quantile(boot, c(0.025, 0.975))[1],nsmall=1,digits=2), "%-",format(100*quantile(boot, c(0.025, 0.975))[2],nsmall=1,digits = 2), "%]"))
+  }
+  
+  
+}
+
+
+summary_table_matrix <- matrix(byrow = TRUE,
+  summary_table, 
+  ncol = 5
+  
+)
+kable(
+  summary_table_matrix,
+  align = c("l","r","r","r","r"),
+  col.names = c("","On label","Label extending","Pre-approval not novel","Pre-approval novel")
+)
+
+
+
+
+
+```
+
